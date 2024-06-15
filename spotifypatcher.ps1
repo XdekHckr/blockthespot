@@ -12,14 +12,9 @@ $PSDefaultParameterValues['Stop-Process:ErrorAction'] = [System.Management.Autom
 
 [System.Version] $minimalSupportedSpotifyVersion = '1.2.8.923'
 
-$Host.UI.RawUI.WindowTitle = "Spotify patcher"
-# Ustawienie koloru na zielony
-$Host.UI.RawUI.ForegroundColor = 'Green'
-
-
 write-host @'
 *****************
-#Last update on: 25.08.2023 09:20
+#Last update on: 15.06.2024 20:23
 *****************
 If you have any issues with script then join our discord to get help: https://xdekhckr.com/discord
 *****************
@@ -126,6 +121,11 @@ function Test-SpotifyVersion
   }
 }
 
+Write-Host @'
+**********************************
+Author: XdekHckr
+**********************************
+'@
 
 $spotifyDirectory = Join-Path -Path $env:APPDATA -ChildPath 'Spotify'
 $spotifyExecutable = Join-Path -Path $spotifyDirectory -ChildPath 'Spotify.exe'
@@ -283,6 +283,25 @@ Write-Host 'Patching Spotify...'
 $patchFiles = (Join-Path -Path $PWD -ChildPath 'dpapi.dll'), (Join-Path -Path $PWD -ChildPath 'config.ini')
 
 Copy-Item -LiteralPath $patchFiles -Destination "$spotifyDirectory"
+Remove-Item -LiteralPath (Join-Path -Path $spotifyDirectory -ChildPath 'blockthespot_settings.json') -Force -ErrorAction SilentlyContinue # temporary
+
+function Install-VcRedist {
+  $architecture = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
+  # https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
+  $vcRedistUrl = "https://aka.ms/vs/17/release/vc_redist.$($architecture).exe"
+  $registryPath = "HKLM:\Software\Microsoft\VisualStudio\14.0\VC\Runtimes\$architecture"
+  $installedVersion = [version]((Get-ItemProperty $registryPath -ErrorAction SilentlyContinue).Version).Substring(1)
+  $latestVersion = [version]"14.40.33810.0"
+
+  if ($installedVersion -lt $latestVersion) {
+      $vcRedistFile = Join-Path -Path $PWD -ChildPath "vc_redist.$architecture.exe"
+      Write-Host "Downloading and installing vc_redist.$architecture.exe..."
+      Invoke-WebRequest -Uri $vcRedistUrl -OutFile $vcRedistFile
+      Start-Process -FilePath $vcRedistFile -ArgumentList "/install /quiet /norestart" -Wait
+  }
+}
+
+Install-VcRedist
 
 $tempDirectory = $PWD
 Pop-Location
